@@ -1,4 +1,4 @@
-# write data to any kafka cluster
+#write data to any kafka cluster
 # write data to any kafka topic
 # schedule fetch price from yahoo finance
 # configurable stack symbol
@@ -49,7 +49,7 @@ def fetch_price_and_send(producer, stock):
 	#price = stock.get_price()
 	#trade_time = stock.get_trade_datatime()
 	price = get_quote(stock)
-	trade_time = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
+	trade_time = int(round(time.time()*1000))
 	data={
 		'symbol': symbol,
 		'last_time': trade_time,
