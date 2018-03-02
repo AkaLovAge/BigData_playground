@@ -13,7 +13,7 @@ import logging
 import atexit
 
 logging.basicConfig()
-logger = logging.geLogger('data-stream')
+logger = logging.getLogger('data-stream')
 logger.setLevel(logging.INFO)
 
 topic_name = ''

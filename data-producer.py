@@ -11,6 +11,7 @@ import logging
 import json
 import requests
 
+from bs4 import BeautifulSoup
 import urllib
 import re 
 
@@ -54,15 +55,17 @@ def enrich_with_zipkin_data(data):
 def fetch_price(symbol):
 	logger.debug('about to fetch price')
 	base_url = 'http://finance.google.com/finance?q='
-	content = urllib.urlopen(base_url + symbol).read()
-	m = re.search('id="ref_22144_l".*?>(.*?)<',content)
-	price = None
+	content = BeautifulSoup(urllib.urlopen(base_url + symbol).read(),"html.parser")
+	m = content.find("span",{"class":"pr"})
+	price = 0
 
 	if m:
-		price = m.group(1)
+		m = m.find("span")
+		price = float(m.text.replace(',',''))
 	else:
 		logger.warn("cannot get price from google finance")
-	
+		return None
+
 	if price:
 		trade_time = int(round(time.time()*1000))
 		data = {
@@ -87,8 +90,8 @@ def fetch_price_and_send(producer, stock):
 
 	with zipkin_span(service_name='data-producer',span_name="fetch-price",transport_handler=http_transport_handler, sample_rate=100.0):
 		data = fetch_price(stock)	
-		send2_kafka(producer, data)
-
+		if data:
+			send2_kafka(producer, data)
 
 	
 if __name__ == '__main__':
