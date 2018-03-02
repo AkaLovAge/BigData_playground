@@ -7,9 +7,13 @@ import time
 import logging
 import atexit
 import json 
+import requests 
 
 from kafka import KafkaConsumer
 from cassandra.cluster import Cluster
+from py_zipkin.zipkin import zipkin_span
+from py_zipkin.zipkin import ZipkinAttrs
+
 
 topic_name = ""
 kafka_broker = ""
@@ -21,6 +25,19 @@ logging.basicConfig()
 logger = logging.getLogger('data-storage')
 logger.setLevel(logging.DEBUG)
 
+def http_transport_handler(span):
+	requests.post("http://localhost:9411/api/v1/spans",data=span,headers={'Content-Type':'application/x-thrift'})
+
+def construc_zipkin_attrs(data):
+	parsed = json.loads(data)
+	return ZipkinAttrs(
+		trace_id = parsed.get('trace_id'),
+		parent_span_id = parsed.get('parent_span_id'),
+		span_id = generate_random_64bit_string(),
+		is_sampled = parsed.get('is_sampled'),
+		flags = '0'	
+	)
+	
 def shutdown_hook(consumer,session):
 
 	logger.info("closing source")
@@ -30,21 +47,24 @@ def shutdown_hook(consumer,session):
 	logger.info("release source")
 
 def save_data(stock_data, session):
-	try:
-		logger.debug('start to save data %s',stock_data)
-		parsed = json.loads(stock_data)
-		symbol = parsed.get('symbol')
-		price = parsed.get('price')
-		timestamp = parsed.get('last_time')
+	zipkin_attrs = construct_zipkin_attrs(stock_data)
+	
+	with zipkin_span(service_name = 'data-storage', span_name = 'save_data', transport_handler = http_transport_handler, zipkin_attrs=zipkin_attrs):
+		try:
+			logger.debug('start to save data %s',stock_data)
+			parsed = json.loads(stock_data)
+			symbol = parsed.get('symbol')
+			price = parsed.get('price')
+			timestamp = parsed.get('last_time')
 
-		statement = "INSERT INTO %s (symbol, trade_time, price) VALUES ('%s', '%s', '%f')" % (table, symbol, timestamp, price)
+			statement = "INSERT INTO %s (symbol, trade_time, price) VALUES ('%s', '%s', '%f')" % (table, symbol, timestamp, price)
 
-		session.execute(statement)
+			session.execute(statement)
 
-		logger.info('saved data into cassandra')
+			logger.info('saved data into cassandra')
 
-	except Exception as e:
-		logger.debug('cannot save data %s',stock_data)	
+		except Exception as e:
+			logger.debug('cannot save data %s',stock_data)	
 
 if __name__ == "__main__":
 	#set up command line argument
