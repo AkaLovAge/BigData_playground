@@ -37,12 +37,13 @@ def process_stream(stream):
 				'average':r[1],
 				'timestamp': time.time()
 			})
+		logger.info(data)
 		kafka_producer.send(target_topic, value = data)
 
 	def preprocess(data):
 		#validation 
 
-		record = json.load(data[1].decode('utf-8'))
+		record = json.loads(data[1].decode('utf-8'))
 		return record.get('symbol'), (float(record.get('price')),1)
 	stream.map(preprocess).reduceByKey(lambda a,b:(a[0]+b[0],a[1]+b[1])).map(lambda (k,v):(k,v[0]/v[1])).foreachRDD(send_to_kafka)
 
@@ -61,7 +62,7 @@ if __name__ == '__main__':
 	target_topic = args.target_topic
 	
 	sc = SparkContext('local[2]', 'stock-price-ana')
-	sc.setLogLevel('INFO')
+	sc.setLogLevel('WARN')
 	ssc = StreamingContext(sc, 5)
 	
 	# direct stream

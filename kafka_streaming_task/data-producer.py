@@ -61,7 +61,7 @@ def fetch_price(symbol):
 
 	if m:
 		m = m.find("span")
-		price = float(m.text.replace(',',''))
+		price = m.text.replace(',','')
 	else:
 		logger.warn("cannot get price from google finance")
 		return None
